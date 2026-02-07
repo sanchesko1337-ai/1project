@@ -1,29 +1,35 @@
-<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>3D Storage</title>
 </head>
 <body>
     <header>
-        <!-- {{ ... }} — это переменная. Мы передадим её из Python -->
+        
         <h1>{{ page_title }}</h1>
     </header>
 
     <main>
         <h2>Доступные ассеты:</h2>
-        <!-- Цикл for в шаблоне Django -->
+        
         <ul>
             {% for asset in assets %}
                 <li>
+                    <strong>{{ asset.title }}</strong>
+                   
+                    <small>(Размер: {{ asset.file.size|filesizeformat }})</small>
+                    <a href="{{ asset.file.url }}" download>[Скачать файл]</a>
+                </li>
+                 <!--<li>
                     <strong>{{ asset.name }}</strong>
                     <small>(Размер: {{ asset.file_size }})</small>
-                    <!-- Ссылка-заглушка -->
+                    
                     <a href="#">[Скачать]</a>
                     <a href="/about/">О нас</a>
-                </li>
+                </li>-->
             {% empty %}
-                <!-- Этот блок сработает, если список assets пустой -->
-                <li>Нет доступных моделей.</li>
+
+                <li>Нет доступных моделей.</li> 
+
             {% endfor %}
         </ul>
     </main>
@@ -33,3 +39,4 @@
     </footer>
 </body>
 </html>
+

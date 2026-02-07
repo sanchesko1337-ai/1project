@@ -1,4 +1,5 @@
 from django.shortcuts import render
+
 def home(request):
     # Имитация данных из базы (список словарей)
     fake_database = [
@@ -14,3 +15,4 @@ def home(request):
 
 def about(request):
     return render(request, 'gallery/about.html')
+
