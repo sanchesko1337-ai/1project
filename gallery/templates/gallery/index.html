@@ -6,6 +6,9 @@
     <header>
         
         <h1>{{ page_title }}</h1>
+        <a href="{% url 'upload' %}" class="upload-button">
+            <button>Загрузить модель</button>
+        </a>
     </header>
 
     <main>
@@ -15,17 +18,12 @@
             {% for asset in assets %}
                 <li>
                     <strong>{{ asset.title }}</strong>
-                   
-                    <small>(Размер: {{ asset.file.size|filesizeformat }})</small>
-                    <a href="{{ asset.file.url }}" download>[Скачать файл]</a>
+                    {% if asset.file %}
+                        <small>({{ asset.file.size|filesizeformat }})</small>
+                        <a href="{{ asset.file.url }}" download>[Скачать]</a>
+                    {% endif %}
                 </li>
-                 <!--<li>
-                    <strong>{{ asset.name }}</strong>
-                    <small>(Размер: {{ asset.file_size }})</small>
-                    
-                    <a href="#">[Скачать]</a>
-                    <a href="/about/">О нас</a>
-                </li>-->
+                
             {% empty %}
 
                 <li>Нет доступных моделей.</li> 
