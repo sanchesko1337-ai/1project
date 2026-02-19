@@ -1,40 +1,76 @@
+
 <head>
     <meta charset="UTF-8">
     <title>3D Storage</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'gallery/style.css' %}">
 </head>
 <body>
     <header>
-        
         <h1>{{ page_title }}</h1>
-        <a href="{% url 'upload' %}" class="upload-button">
-            <button>Загрузить модель</button>
-        </a>
+        <!-- Ссылка на загрузку теперь выглядит как кнопка -->
+        <a href="{% url 'upload' %}" class="btn" style="background-color: #28a745;">+
+        Загрузить модель</a>
     </header>
-
     <main>
-        <h2>Доступные ассеты:</h2>
-        
-        <ul>
+    <!-- Контейнер сетки -->
+        <div class="gallery-grid">
             {% for asset in assets %}
-                <li>
-                    <strong>{{ asset.title }}</strong>
-                    {% if asset.file %}
-                        <small>({{ asset.file.size|filesizeformat }})</small>
-                        <a href="{{ asset.file.url }}" download>[Скачать]</a>
-                    {% endif %}
-                </li>
-                
+        <!-- Карточка -->
+                <div class="asset-card">
+        <!-- 1. Превью (Верхняя часть) -->
+        <!-- Пока здесь просто серый квадрат с иконкой куба -->
+        <!-- На 6-й неделе здесь будет картинка, на 5-й - 3D сцена -->
+                    <div class="card-preview">
+                        id="model-container-{{ asset.id }}"
+                        data-url="{% if asset.file %}{{ asset.file.url }}{% endif %}">    
+                    </div>
+        <!-- 2. Информация (Нижняя часть) -->
+                    <div class="card-info">
+                        <h3 class="card-title">{{ asset.title }}</h3>
+                        <div class="card-meta">
+                            <span>📅 {{ asset.created_at|date:"d M Y" }}</span>
+        <!-- Если есть файл, показываем размер -->
+                            {% if asset.file %}
+                                <span style="float: right;">💾 {{
+        asset.file.size|filesizeformat }}</span>
+                            {% endif %}
+                        </div>
+        <!-- Кнопка скачивания -->
+                        {% if asset.file %}
+                            <a href="{{ asset.file.url }}" class="btn" download>Скачать.glb</a>
+                        {% else %}
+                             <span style="color: red;">Файл потерян</span>
+                        {% endif %}
+                    </div>
+                 </div>
             {% empty %}
-
-                <li>Нет доступных моделей.</li> 
-
+                <p>База пуста.</p>
             {% endfor %}
-        </ul>
+        </div>
     </main>
-
-    <footer>
-        <p>&copy; 2024 Web Structures Course</p>
-    </footer>
+<script type="module">
+    // Импортируем нашу функцию.
+    // Обратите внимание: путь к JS через static
+    import { mountSimpleCube } from "{% static 'gallery/js/viewer.js' %}";
+    // Находим все контейнеры карточек
+    const containers = document.querySelectorAll('.card-preview');
+    if (containers.length > 0) {
+    // Берем только первый контейнер для теста
+        const firstContainer = containers[0];
+        // Получаем его ID (мы задали его на прошлой неделе: model-container-{{ asset.id }})
+        const containerId = firstContainer.id;
+        // Запускаем магию
+        mountSimpleCube(containerId);
+    }
+</script>
 </body>
-</html>
-
