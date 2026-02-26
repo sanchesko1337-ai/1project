@@ -1,53 +1,86 @@
 import * as THREE from 'three';
-// 2. Экспортируем главную функцию
-// Она принимает ID HTML-элемента, в который нужно вставить 3D
-export function mountSimpleCube(containerId) {
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+export function loadModel(containerId, modelUrl) {
     const container = document.getElementById(containerId);
-    if (!container) {
-        console.error("Контейнер не найден:", containerId);
-        return;
-    }
-    // --- А. СЦЕНА ---
+    if (!container) return;
+    
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0); // Светло-серый фон
-    // --- Б. КАМЕРА ---
-    // Угол обзора 75, пропорции как у контейнера, видеть от 0.1 до 1000 метров
-    const camera = new THREE.PerspectiveCamera(
-        75,
-        container.clientWidth / container.clientHeight,
-        0.1,
-        1000
-    );
-    camera.position.z = 2; // Отодвигаем камеру чуть назад
-    // --- В. РЕНДЕРЕР (Художник) ---
-    const renderer = new THREE.WebGLRenderer({ antialias: true }); // antialias -
-    сглаживание
+    scene.background = new THREE.Color(0xf5f5f5);
+    
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    // Вставляем "холст" (canvas) внутрь нашего div
-    container.innerHTML = ''; // Очищаем текст "Wait..."
+    container.innerHTML = '';
     container.appendChild(renderer.domElement);
-    // --- Г. ОБЪЕКТ (Куб) ---
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ color: 0x007bff }); // Синий
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-    // --- Д. СВЕТ ---
-    const light = new THREE.DirectionalLight(0xffffff, 2); // Белый мощный свет
-    light.position.set(5, 5, 5);
-    scene.add(light);
-    // Добавим еще мягкий свет, чтобы тени не были черными
-    const ambientLight = new THREE.AmbientLight(0x404040);
+    
+    // Свет
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
-    // --- Е. АНИМАЦИЯ (Loop) ---
+    const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+    
+    // ГЛОБАЛЬНАЯ переменная для вращения ← ПЕРЕМЕСТИЛ ВВЕРХ!
+    let loadedModel = null;
+    
+    // Загрузка модели
+    const loader = new GLTFLoader();
+    console.log("Загружаем:", modelUrl);
+    
+    loader.load(modelUrl,
+        (gltf) => { 
+            console.log("GLTF loaded:", gltf);
+            const model = gltf.scene;
+            loadedModel = model;  // ← ТЕПЕРЬ работает!
+            fitCameraToObject(camera, model, 20.0);  // ← 2.0 вместо 20.15
+            model.scale.set(1, 1, 1);
+            model.position.set(0, 0, 0);
+            scene.add(model);
+            console.log("Модель добавлена в сцену");
+        },
+        (progress) => { 
+            console.log("Loading:", (progress.loaded / progress.total * 100) + '%'); 
+        },
+        (error) => { 
+            console.error("LOAD ERROR:", modelUrl, error); 
+            container.innerHTML = 'Не удалось загрузить модель';
+        }
+    );
+    
+    // Анимация
     function animate() {
-        requestAnimationFrame(animate); // Запрашиваем следующий кадр
-        // Вращаем куб
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
-        // Рисуем кадр
+        requestAnimationFrame(animate);
+        if (loadedModel) {
+            loadedModel.rotation.y += 0.005;  // ← ТЕПЕРЬ РАБОТАЕТ!
+        }
         renderer.render(scene, camera);
     }
-    // Запуск
     animate();
-    console.log("3D сцена запущена в", containerId);
+    
+    // Resize
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+}
+
+function fitCameraToObject(camera, object, offset = 1.5) {
+    const boundingBox = new THREE.Box3();
+    boundingBox.setFromObject(object);
+    
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 4 * Math.tan(fov / 2));
+    cameraZ = Math.min(cameraZ * offset, 50);
+    
+    camera.position.set(0, 0, cameraZ);
+    camera.lookAt(center);
+    camera.updateProjectionMatrix();
+    
+    console.log("FIXED bounds:", maxDim, "Camera Z:", cameraZ);
 }

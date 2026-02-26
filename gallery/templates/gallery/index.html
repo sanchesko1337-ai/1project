@@ -27,29 +27,21 @@
             {% for asset in assets %}
         <!-- Карточка -->
                 <div class="asset-card">
-        <!-- 1. Превью (Верхняя часть) -->
-        <!-- Пока здесь просто серый квадрат с иконкой куба -->
-        <!-- На 6-й неделе здесь будет картинка, на 5-й - 3D сцена -->
-                    <div class="card-preview">
-                        id="model-container-{{ asset.id }}"
-                        data-url="{% if asset.file %}{{ asset.file.url }}{% endif %}">    
+        
+                    <div id="model-container-{{ asset.id }}" data-url="{% if asset.file %}{{ asset.file.url }}{% endif %}" style="width: 300px !important; height: 300px !important; border: 2px solid red;">
+    <!-- Здесь будет модель -->
                     </div>
         <!-- 2. Информация (Нижняя часть) -->
                     <div class="card-info">
                         <h3 class="card-title">{{ asset.title }}</h3>
                         <div class="card-meta">
                             <span>📅 {{ asset.created_at|date:"d M Y" }}</span>
-        <!-- Если есть файл, показываем размер -->
                             {% if asset.file %}
-                                <span style="float: right;">💾 {{
-        asset.file.size|filesizeformat }}</span>
+                                <span style="float: right;">💾 Файл готов</span>
                             {% endif %}
                         </div>
-        <!-- Кнопка скачивания -->
                         {% if asset.file %}
-                            <a href="{{ asset.file.url }}" class="btn" download>Скачать.glb</a>
-                        {% else %}
-                             <span style="color: red;">Файл потерян</span>
+                            <a href="{{ asset.file.url }}" class="btn" download>Скачать .glb</a>
                         {% endif %}
                     </div>
                  </div>
@@ -59,18 +51,17 @@
         </div>
     </main>
 <script type="module">
-    // Импортируем нашу функцию.
-    // Обратите внимание: путь к JS через static
-    import { mountSimpleCube } from "{% static 'gallery/js/viewer.js' %}";
-    // Находим все контейнеры карточек
-    const containers = document.querySelectorAll('.card-preview');
-    if (containers.length > 0) {
-    // Берем только первый контейнер для теста
-        const firstContainer = containers[0];
-        // Получаем его ID (мы задали его на прошлой неделе: model-container-{{ asset.id }})
-        const containerId = firstContainer.id;
-        // Запускаем магию
-        mountSimpleCube(containerId);
-    }
+    import { loadModel } from "{% static 'gallery/js/viewer.js' %}";
+    
+    const containers = document.querySelectorAll('[id^="model-container-"]');
+    containers.forEach(container => {
+        const modelUrl = container.dataset.url;
+        if (modelUrl) {
+            loadModel(container.id, modelUrl);
+        } else {
+            // Заглушка для пустых карточек
+            container.innerHTML = '<div style="color:#666;font-size:14px;padding:20px;">Нет модели</div>';
+        }
+    });
 </script>
 </body>
