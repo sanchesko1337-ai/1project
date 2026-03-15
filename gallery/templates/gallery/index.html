@@ -1,7 +1,10 @@
-
+<!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Storage</title>
+    
     <script type="importmap">
     {
         "imports": {
@@ -16,52 +19,106 @@
 </head>
 <body>
     <header>
-        <h1>{{ page_title }}</h1>
-        <!-- Ссылка на загрузку теперь выглядит как кнопка -->
-        <a href="{% url 'upload' %}" class="btn" style="background-color: #28a745;">+
-        Загрузить модель</a>
+        <h1>{{ page_title|default:"3D Галерея" }}</h1>
+        <a href="{% url 'upload' %}" class="btn" style="background-color: #28a745;">
+            ➕ Загрузить модель
+        </a>
     </header>
+
+    <!-- 🔥 ПАНЕЛЬ ПОИСКА + СОРТИРОВКИ -->
+    <div class="toolbar">
+        <form method="get" style="flex-grow: 1; display: flex; gap: 15px; flex-wrap: wrap;">
+            <!-- Поиск -->
+            <input type="text" 
+                   name="q" 
+                   class="search-input"
+                   placeholder="🔍 Поиск по названию..."
+                   value="{{ request.GET.q|default:'' }}">
+            
+            <!-- Сортировка -->
+            <select name="ordering" class="sort-select">
+                <option value="new" {% if request.GET.ordering == 'new' %}selected{% endif %}>Сначала новые</option>
+                <option value="old" {% if request.GET.ordering == 'old' %}selected{% endif %}>Сначала старые</option>
+                <option value="name" {% if request.GET.ordering == 'name' %}selected{% endif %}>По имени (А-Я)</option>
+            </select>
+            
+            <button type="submit" class="search-btn">Найти</button>
+        </form>
+        
+        <!-- Сброс фильтров -->
+        {% if request.GET.q or request.GET.ordering %}
+        <a href="{% url 'home' %}" class="reset-link">[✖ Сбросить]</a>
+        {% endif %}
+    </div>
+
     <main>
-    <!-- Контейнер сетки -->
         <div class="gallery-grid">
             {% for asset in assets %}
-        <!-- Карточка -->
-                <div class="asset-card">
-        
-                    <div id="model-container-{{ asset.id }}" data-url="{% if asset.file %}{{ asset.file.url }}{% endif %}" style="width: 300px !important; height: 300px !important; border: 2px solid red;">
-    <!-- Здесь будет модель -->
-                    </div>
-        <!-- 2. Информация (Нижняя часть) -->
-                    <div class="card-info">
-                        <h3 class="card-title">{{ asset.title }}</h3>
-                        <div class="card-meta">
-                            <span>📅 {{ asset.created_at|date:"d M Y" }}</span>
-                            {% if asset.file %}
-                                <span style="float: right;">💾 Файл готов</span>
-                            {% endif %}
-                        </div>
+            <div class="asset-card">
+                <div class="card-preview" 
+                     data-url="{% if asset.file %}{{ asset.file.url }}{% endif %}" 
+                     id="model-container-{{ asset.id }}">
+                    {% if asset.image %}
+                        <img src="{{ asset.image.url }}" alt="{{ asset.title }}" loading="lazy">
                         {% if asset.file %}
-                            <a href="{{ asset.file.url }}" class="btn" download>Скачать .glb</a>
+                            <div class="play-btn">▶</div>
+                        {% endif %}
+                    {% else %}
+                        <div style="display: flex; align-items: center; justify-content: center; height: 200px; color: #999; font-size: 18px; border-radius: 8px 8px 0 0;">
+                            🎲 Нет превью
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-info">
+                    <h3 class="card-title">{{ asset.title }}</h3>
+                    <div class="card-meta">
+                        <span>📅 {{ asset.created_at|date:"d M Y H:i" }}</span>
+                        {% if asset.file %}
+                            <span style="float: right;">💾 {{ asset.file.size|filesizeformat }}</span>
                         {% endif %}
                     </div>
-                 </div>
+                    {% if asset.file %}
+                        <a href="{{ asset.file.url }}" class="btn" download>⬇️ Скачать</a>
+                    {% endif %}
+                </div>
+            </div>
             {% empty %}
-                <p>База пуста.</p>
+            <!-- 🔥 СМАРТНЫЕ СООБЩЕНИЯ -->
+            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #666;">
+                {% if request.GET.q %}
+                    <h2>🕵️‍♂️ Ничего не найдено</h2>
+                    <p>По запросу "<strong>{{ request.GET.q }}</strong>" моделей нет.</p>
+                    <p>Попробуйте изменить запрос или <a href="{% url 'home' %}" class="reset-link">сбросить фильтры</a>.</p>
+                {% else %}
+                    <h2>Пусто 😔</h2>
+                    <p>Загрузите первую 3D модель!</p>
+                    <a href="{% url 'upload' %}" class="btn">➕ Начать</a>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
     </main>
-<script type="module">
-    import { loadModel } from "{% static 'gallery/js/viewer.js' %}";
-    
-    const containers = document.querySelectorAll('[id^="model-container-"]');
-    containers.forEach(container => {
-        const modelUrl = container.dataset.url;
-        if (modelUrl) {
-            loadModel(container.id, modelUrl);
-        } else {
-            // Заглушка для пустых карточек
-            container.innerHTML = '<div style="color:#666;font-size:14px;padding:20px;">Нет модели</div>';
-        }
-    });
-</script>
+
+    <script type="module">
+        import { loadModel } from "{% static 'gallery/js/viewer.js' %}";
+        document.querySelectorAll('.card-preview[data-url]').forEach(container => {
+            container.addEventListener('click', function(e) {
+                if (e.target.closest('.btn')) return;
+                const modelUrl = this.dataset.url;
+                if (modelUrl && !this.classList.contains('model-loaded')) {
+                    this.classList.add('loading', 'model-loaded');
+                    this.innerHTML = `
+                        <div class="loading-overlay">
+                            <div style="font-size: 16px; margin-bottom: 20px;">Загрузка 3D...</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill"></div>
+                            </div>
+                        </div>
+                    `;
+                    loadModel(this.id, modelUrl);
+                }
+            });
+        });
+    </script>
 </body>
+</html>

@@ -3,29 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <title>Загрузка модели</title>
-    <!-- Простой CSS для наглядности (пока без внешних файлов) -->
+    {% load static %}
+    /style.css' %}">
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 01rem; }
-        .form-group { margin-bottom: 1rem; }
-        button { padding: 10px 20px; cursor: pointer; }
+        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 20px; }
+        #preview-container { 
+            width: 300px; height: 200px; 
+            border: 2px dashed #007bff; 
+            margin: 20px auto; 
+            display: flex; align-items: center; justify-content: center;
+            background: #f8f9fa; font-size: 14px;
+        }
+        #submit-btn:disabled { 
+            background: #6c757d; color: #ccc; cursor: not-allowed; 
+        }
+        #submit-btn:not(:disabled) { 
+            background: #28a745; cursor: pointer; 
+        }
+        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 6px; }
     </style>
+    
+    <!-- 🔥 IMPORTMAP для Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
     <h1>Загрузить новую 3D модель</h1>
-    <!--
-    1. method="post": Чтобы отправить данные.
-    2. enctype="multipart/form-data": ОБЯЗАТЕЛЬНО для файлов!
-    -->
+    
     <form method="post" enctype="multipart/form-data">
-    <!-- Защита от хакеров -->
         {% csrf_token %}
-    <!-- Django сам нарисует label и input для всех полей -->
-        <div class="form-group">
         {{ form.as_p }}
-        </div>
-        <button type="submit">Загрузить в базу</button>
+        
+        <!-- Скрытое поле для картинки -->
+        <input type="hidden" name="image_data" id="id_image_data">
+        
+        <!-- Превью контейнер -->
+        <div id="preview-container">👆 Выберите .glb файл для превью</div>
+        <br>
+        
+        <!-- Кнопка изначально заблокирована -->
+        <button type="submit" id="submit-btn" disabled>
+            Генерация превью...
+        </button>
     </form>
+    
     <br>
-    <a href="{% url 'home' %}">← Назад в галерею</a>
+    <a href="{% url 'home' %}" class="btn">← Назад в галерею</a>
+
+    <!-- 🔥 ВСЁ Three.js прямо тут -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        
+        const fileInput = document.querySelector('input[type="file"]');
+        const previewContainer = document.getElementById('preview-container');
+        const hiddenInput = document.getElementById('id_image_data');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && (file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
+                    const url = URL.createObjectURL(file);
+                    generateThumbnail(url);
+                } else {
+                    previewContainer.innerHTML = '❌ Только .glb или .gltf файлы';
+                    submitBtn.disabled = true;
+                }
+            });
+        }
+        
+        function generateThumbnail(modelUrl) {
+            previewContainer.innerHTML = '⏳ Генерация превью...';
+            submitBtn.disabled = true;
+            
+            const width = 300, height = 200;
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+            
+            const camera = new THREE.PerspectiveCamera(45, width/height, 0.1, 100);
+            const renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                preserveDrawingBuffer: true 
+            });
+            renderer.setSize(width, height);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(renderer.domElement);
+            
+            // Освещение
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+            
+            // Загрузка модели
+            const loader = new GLTFLoader();
+            loader.load(modelUrl, (gltf) => {
+                const model = gltf.scene;
+                
+                // Центрирование
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+                scene.add(model);
+                
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = camera.fov * (Math.PI / 180);
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+                
+                camera.position.set(cameraZ * 0.5, cameraZ * 0.5, cameraZ);
+                camera.lookAt(0, 0, 0);
+                
+                // Рендер + скриншот
+                renderer.render(scene, camera);
+                const dataURL = renderer.domElement.toDataURL('image/jpeg', 0.8);
+                
+                hiddenInput.value = dataURL;
+                submitBtn.disabled = false;
+                submitBtn.textContent = '✅ Загрузить в базу';
+                
+                // Очистка памяти
+                URL.revokeObjectURL(modelUrl);
+            }, undefined, (err) => {
+                console.error('Ошибка:', err);
+                previewContainer.innerHTML = '❌ Ошибка генерации превью';
+            });
+        }
+    </script>
 </body>
 </html>
